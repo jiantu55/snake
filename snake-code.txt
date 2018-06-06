@@ -1,0 +1,430 @@
+/******贪 吃 蛇*******/
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<windows.h>
+#include<time.h>
+#define U 1
+#define D 2
+#define L 3
+#define R 4
+#define W 30
+#define H 30
+#define A 16
+#define B 12 
+typedef struct SNAKE
+{
+	int x;
+	int y;
+	struct SNAKE *next;
+}snake;
+int life=1,maxscore=1,sumscore=0,key,score,tm;
+HANDLE H_out;
+snake *snkhead,*food;
+void welcome(void);			//欢迎界面 
+void snkword(int x,int y);		//画蛇字母 
+void ctrlgm(void);			//游戏控制 
+void pausegm(void);			//游戏暂停 
+void overgm(void);			//游戏结束 
+void snkmove(void);			//蛇身移动 
+void snkmake(void);			//蛇身初始化 
+void snkfree(void);			//一次结束后释放蛇身内存 
+void snklife(void);			//判断生命重玩 
+void foodmake(void);		//随机食物 
+void map(void);			//地图 
+void toxy(int x,int y);			//光标位置	
+void  hidecursor(void);		//隐藏光标 
+void color(int n);			//改变颜色 
+void speed(int x);			//变速 
+void eatself(void);			//判断是否咬到自己 
+void hitwall(void);			//判断是否撞墙 
+void savescore(void);			//保存成绩 
+void getscore(void);			//获取纪录 
+int main(void)
+{
+	SetConsoleTitle("贪吃蛇小游戏   Made by:简途");
+	system("mode con cols=90 lines=32");
+	H_out=GetStdHandle(STD_OUTPUT_HANDLE);
+	snkhead=(snake*)malloc(sizeof(snake));	
+	food=(snake*)malloc(sizeof(snake));
+	hidecursor();
+	welcome();
+	ctrlgm(); 
+}
+void  snkword(int x,int y)
+{
+	int i;
+	int    snk[2][32]={
+	{A,A-1,A-2,A-2,A-2,A-1,A,A,A,A-1,A-2,A+2,A+2,A+2,A+2,A+2,A+3,A+4,A+4,A+4,A+4,A+4,A+6,A+6,A+6,A+6,A+6,A+9,A+8,A+7,A+8,A+9},
+	{B,B,B,B+1,B+2,B+2,B+2,B+3,B+4,B+4,B+4,B+4,B+3,B+2,B+1,B,B,B,B+1,B+2,B+3,B+4,B,B+1,B+2,B+3,B+4,B,B+1,B+2,B+3,B+4}};
+	for(i=0;i<32;i++)
+	{
+		toxy(snk[0][i]+x,snk[1][i]+y);
+		printf("■");
+		Sleep(200);		//控制直接输出还是依次输出
+	}	
+}
+void welcome(void)
+{
+	int i;
+	toxy(15,6);
+	printf("贪 ★ 吃 ★ 蛇 ★ 游 ★ 戏"); 
+	/*toxy(21,8);
+	printf("■");
+	toxy(21,23);
+	printf("★");
+	for(i=0;i<15;i++)
+	{
+		Sleep(200);
+		toxy(21,9+i);
+		printf("■");
+		toxy(21,7+i);
+		printf(" ");   	 //输出空格符，为了消蛇尾 
+	}
+	toxy(21,22);
+	printf(" ");
+	toxy(21,23);
+	printf(" ");*/
+	toxy(18,23); 
+	printf("★作 者：简 途★");
+	Sleep(800);
+	snkword(2,0);		//改坐标时可以直接改参数值，也可以改宏定义A和B
+	toxy(18,28);
+	printf("Enter:进入游戏...");
+	getscore(); 		//获取记录分数
+	pausegm(); 
+}
+void ctrlgm(void)
+{
+	score=0;
+	tm=6;
+	key=D;
+	system("cls");
+	map();
+	color(11);			//改控制台前景颜色 
+	snkmake();
+	foodmake();
+	pausegm();
+	while(1)
+	{
+		if(GetAsyncKeyState(VK_UP)&&key!=D)
+			key=U;	
+		else if(GetAsyncKeyState(VK_DOWN)&&key!=U)
+			key=D;
+		else if(GetAsyncKeyState(VK_LEFT)&&key!=R)
+			key=L;
+		else if(GetAsyncKeyState(VK_RIGHT)&&key!=L)
+			key=R;
+		if(GetAsyncKeyState(VK_ADD))
+			speed(1);
+		else if(GetAsyncKeyState(VK_SUBTRACT))
+			speed(0);
+	    if(GetAsyncKeyState(VK_SPACE))
+			pausegm();
+		else if(GetAsyncKeyState(VK_ESCAPE))
+			break;
+		snkmove();
+		Sleep(50*tm);				
+	}
+	overgm(); 		
+}
+void snkmove(void)
+{
+	snake *mp;
+	mp=(snake*)malloc(sizeof(snake));
+	if(key==U)
+	{
+		mp->x=snkhead->x;
+		mp->y=snkhead->y-1;	
+	}else
+	if(key==D)
+	{
+		mp->x=snkhead->x;
+		mp->y=snkhead->y+1;	
+	}else
+	if(key==L)
+	{
+		mp->x=snkhead->x-1;
+		mp->y=snkhead->y;		
+	}else
+	if(key==R)
+	{
+		mp->x=snkhead->x+1;
+		mp->y=snkhead->y;
+	}
+	mp->next=snkhead;
+	snkhead=mp;
+	eatself();			
+	hitwall();		
+	if(snkhead->x==food->x&&snkhead->y==food->y)
+	{		
+		toxy(mp->x,mp->y);
+		color(14);
+		printf("■");
+		color(11);
+		toxy(mp->next->x,mp->next->y);        
+		printf("■");		
+		foodmake();
+		score+=20;
+		sumscore+=20;
+		if(score%300==0)
+			life+=1;		//三百分加一条命 
+		if(score%100==0)		//一百分提一档速
+			speed(1);
+	}
+	else
+	{
+		toxy(mp->x,mp->y);
+		color(14);
+		printf("■");
+		color(11);
+		toxy(mp->next->x,mp->next->y);          
+		printf("■");
+		while(mp->next->next!=NULL)
+		{			
+			mp=mp->next;	
+		}
+		toxy(mp->next->x,mp->next->y);
+		printf(" ");
+		free(mp->next);
+		mp->next=NULL;	
+	}
+	toxy(W+8,7);
+	printf("%d",sumscore);
+	toxy(W+8,10);
+	printf("%d",life-1);
+	toxy(W+8,13);
+	printf("%-3d ms",50*tm);
+	toxy(W+8,16);
+	printf("%d",score); 	
+}
+void toxy(int x,int y)
+{
+	COORD pos;
+	pos.X=(x<<1);			//x值的2进制向左位移一位，相当于x*2 
+	pos.Y=y;
+	SetConsoleCursorPosition(H_out,pos);
+}
+void  hidecursor(void)
+{
+	CONSOLE_CURSOR_INFO  hcursor={1,0};
+	SetConsoleCursorInfo(H_out,&hcursor);
+}
+void color(int n)
+ {
+ 	SetConsoleTextAttribute(H_out,n);
+ }
+ void speed(int x)
+{
+	if(tm>1&&x)		
+		tm--;
+	else if(!x)	
+		tm++;				
+}
+void map(void)
+{
+	int i;
+	for(i=0;i<=H;i++)
+	{
+		toxy(0,i);
+		printf("□");
+		toxy(W,i);
+		printf("□");	
+	}
+	for(i=0;i<W;i++)
+	{
+		toxy(i,0);
+		printf("□");
+		toxy(i,H);
+		printf("□");
+	}
+	toxy(W+5,4);
+	printf("记录: %d",maxscore);
+	toxy(W+5,7);
+	printf("总分:");
+	toxy(W+5,10);
+	printf("生命:");
+	toxy(W+5,13);
+	printf("速度:");
+	toxy(W+5,16);
+	printf("得分:");
+	toxy(W+5,19);
+	printf("Enter: 开始");
+	toxy(W+5,22);
+	printf("Space: 暂停");
+	toxy(W+5,25);
+	printf("Esc: 退出");			
+}
+void snkmake(void)
+{
+	snake *snkbody;
+	snkbody=(snake*)malloc(sizeof(snake));
+	snkhead->x=7;
+	snkhead->y=10;
+	snkbody->x=7;
+	snkbody->y=9;
+	snkhead->next=snkbody;
+	snkbody->next=NULL;
+	toxy(snkhead->x,snkhead->y);
+	color(14);
+	printf("■");
+	color(11);	
+	toxy(snkbody->x,snkbody->y);
+	printf("■");			
+}
+void foodmake(void)
+{
+	srand((unsigned)time(NULL));
+	food->x=rand()%(W-1)+1;
+	food->y=rand()%(H-1)+1;
+	snake *fp;
+	fp=snkhead;
+	while(fp!=NULL)
+	{
+		if(food->x==fp->x &&food->y==fp->y)
+		{
+			food->x=rand()%(W-1)+1;
+			food->y=rand()%(H-1)+1;	
+			fp=snkhead;
+		}
+		else
+			fp=fp->next;			
+	}
+	toxy(food->x,food->y);
+	color(12);				
+	printf("★");
+	color(11);				
+}
+void hitwall(void)
+{
+	if(snkhead->x==0||snkhead->x==W||snkhead->y==0||snkhead->y==H)
+	{
+		toxy(13,H/2);
+		color(14);
+		printf("撞墙了!!!");
+		color(7);
+		toxy(0,H+2);
+		sleep(2);
+		snklife();
+	}	
+}
+void eatself(void)
+{
+	snake *p;
+	p=snkhead->next;
+	while(p!=NULL)
+	{
+		if(p->x==snkhead->x&&p->y==snkhead->y)
+		{
+			toxy(13,H/2);
+			color(14);
+			printf("咬到自己!");
+			color(7);
+			toxy(0,H+2);
+			sleep(2);
+			snklife();
+		}
+		p=p->next;
+	}	
+}
+void pausegm(void)
+{
+	toxy(0,H+2);
+	while(1)
+	{
+		Sleep(400);
+		if(GetAsyncKeyState(VK_RETURN))
+			break ;
+		if(GetAsyncKeyState(VK_ESCAPE))
+			overgm();
+	}	
+}
+void savescore(void)
+ {
+ 	FILE *fp;
+ 	if((fp=fopen("D:\\snkscore.txt","wb"))==NULL)
+  	{
+  		toxy(18,25);
+  		printf("成绩保存失败！");	
+	}
+ 	fwrite(&sumscore,sizeof(int),1,fp);
+ 	fclose(fp);
+  }
+void getscore(void)
+  {
+  	FILE *fp;
+  	if((fp=fopen("D:\\snkscore.txt","rb"))==NULL)
+  	{
+  		toxy(18,26);
+  		printf("记录载入失败!!");
+	}
+	fread(&maxscore,sizeof(int),1,fp);
+	fclose(fp);   
+   }
+void snklife(void)
+ {
+ 	life--; 
+ 	if(life!=0)
+ 	{
+ 		system("cls");
+ 		color(7);
+ 		toxy(19,10);
+ 		printf("你还有%d条命",life);
+ 		toxy(18,15);
+ 		printf("Y键:继续  N键:退出");
+		toxy(0,H+2);		
+ 		while(1)
+ 		{
+ 			Sleep(400);
+ 			if(GetAsyncKeyState(0x4E))		//N键 
+ 				overgm();
+ 			else if(GetAsyncKeyState(0x59)) 	//Y键 
+ 			    break;	    
+		 }
+		snkfree();
+		ctrlgm();	
+	 }
+	 else  overgm();
+  } 
+void snkfree(void)
+{
+	snake *sp;
+	sp=snkhead->next;
+	while(sp!=NULL)
+	{  
+		free(sp);
+		sp=sp->next;
+ 	} 	
+}  
+void overgm(void)
+{	
+	int k=10;
+	system("cls");
+	color(7);
+	if(sumscore>maxscore)
+	{
+		savescore();
+		toxy(19,18);
+		color(14);
+		printf("恭喜破纪录！"); 
+		color(7);		
+	}
+	toxy(19,9);
+	printf("游戏结束 !!!");
+	toxy(19,15);
+	printf("你的总分:%d",sumscore);
+	toxy(17,24);
+	printf("Esc:可直接退出程序!",k);		 
+	while(k)
+	{	
+		if(GetAsyncKeyState(VK_ESCAPE))
+			break ;	
+		k--;
+		toxy(18,21);
+		printf("%d 秒后退出程序",k);
+		sleep(1);
+	}
+	exit(0);	
+}
+
+
